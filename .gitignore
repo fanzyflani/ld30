@@ -6,3 +6,6 @@
 *.pyc
 *.pyo
 
+# files which will be lying around
+pixra
+
