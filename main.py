@@ -25,7 +25,7 @@ def subtile(img, w, h, cx, cy):
 	return img.subsurface((cx*w, cy*h, w, h))
 
 # Load some images
-img_tiles = pygame.image.load(os.path.join("dat", "tiles.tga"))
+img_tiles = pygame.image.load(os.path.join("dat", "tiles.png"))
 #img_tiles.set_colorkey(0, pygame.RLEACCEL)
 img_tiles = img_tiles.convert(screen)
 
