@@ -9,6 +9,11 @@ WIDTH = 320
 HEIGHT = 200
 SCALE = 3
 
+# Set up display
+pygame.display.set_caption("LD30")
+screen_real = pygame.display.set_mode((WIDTH*SCALE, HEIGHT*SCALE), 0, 0)
+screen = pygame.Surface((WIDTH, HEIGHT), 0, screen_real.get_bitsize())
+
 def rgb(r, g, b):
 	"""
 	Turns an RGB tuple into a colour value.
@@ -27,26 +32,119 @@ def flip_screen():
 		screen_real)
 	pygame.display.flip()
 
-# Set up display
-pygame.display.set_caption("LD30")
-screen_real = pygame.display.set_mode((WIDTH*SCALE, HEIGHT*SCALE), 0, 0)
-screen = pygame.Surface((WIDTH, HEIGHT), 0, screen_real.get_bitsize())
+class BaseCell:
+	color = rgb(255, 0, 255)
+	solid = True
 
-# TEST CODE.
-tstart = time.time()
-for i in xrange(1000):
-	screen.fill(rgb(0, 0, 255))
-	for j in xrange(100):
-		pygame.draw.circle(screen,
-			rgb(*tuple(random.randint(0, 255) for _ in xrange(3))),
-			(random.randint(0, WIDTH), random.randint(0, HEIGHT)),
-			random.randint(10, 30), 1)
+	def draw(self, surf, x, y):
+		pygame.draw.rect(surf, self.color, (x, y, 16, 16))
 
+	def is_solid(self, other):
+		return self.solid
+
+class FloorCell(BaseCell):
+	color = rgb(170, 100, 85)
+	solid = False
+
+class WallCell(BaseCell):
+	color = rgb(55, 55, 55)
+	solid = True
+
+class Level:
+	"""
+	A Level contains all the logic and stuff for a, well, level.
+	"""
+	def __init__(self, data):
+		# Allocate grid
+		self.g = [[None for x in xrange(len(data[0]))]
+			for y in xrange(len(data))]
+
+		# Put stuff into grid
+		for l, y in zip(data, xrange(len(data))):
+			for c, x in zip(l, xrange(len(l))):
+				self.g[y][x] = self.translate_level_char(c, x, y)
+
+	def tick(self):
+		# TODO.
+		pass
+
+	def draw(self, surf, camx, camy):
+		"""
+		Draws the level at (-camx, -camy) on surface "surf".
+		"""
+		for y in xrange(len(self.g)):
+			for x in xrange(len(self.g[0])):
+				cell = self.g[y][x]
+				if cell != None:
+					cell.draw(surf, x*16-camx, y*16-camy)
+
+		pygame.draw.rect(surf, rgb(0, 255, 0),
+			((self.player_x*16-camx)+4,
+			(self.player_y*16-camy)+4,
+			8, 8))
+
+	def translate_level_char(self, c, x, y):
+		"""
+		Translates a character in the level source array
+		to... I need something better to write here
+		"""
+		if c == ".":
+			return None
+		elif c == ",":
+			return FloorCell()
+		elif c == "#":
+			return WallCell()
+		elif c == "P":
+			self.player_x = x
+			self.player_y = y
+			return FloorCell()
+		else:
+			raise Exception("invalid level char: %s" % repr(c))
+
+# Create test level
+lvl = Level(
+"""
+................
+................
+.....#####......
+..####,,,####...
+..#P,#,,,#,,#...
+..#,,,,,,,,,#...
+..#,,#####,,#...
+..#,,#...#,,#...
+..####...####...
+................
+................
+................
+""".split("\n")[1:-1]
+)
+
+# Main loop
+quitflag = False
+oldkeys = pygame.key.get_pressed()
+newkeys = pygame.key.get_pressed()
+while not quitflag:
+	# Draw screen
+	screen.fill(rgb(0,0,170))
+	lvl.draw(screen, 0, 0)
 	flip_screen()
 
-tend = time.time()
-tdelta = tend - tstart
-print "%f FPS" % (float(1000)/float(tdelta))
+	# Prevent CPU fires
+	# TODO: Proper frame timing
+	time.sleep(0.01)
+
+	# Poll events
+	pygame.event.pump()
+	newkeys = pygame.key.get_pressed()
+	if oldkeys[pygame.K_ESCAPE] and not newkeys[pygame.K_ESCAPE]:
+		quitflag = True
+
+	# Update logic
+	lvl.tick()
+
+	# Transfer newkeys to oldkeys
+	oldkeys = newkeys
+
 
 # Clean up
 pygame.quit()
