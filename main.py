@@ -39,11 +39,23 @@ class BaseCell:
 	color = rgb(255, 0, 255)
 	solid = True
 
-	def draw(self, surf, x, y):
+	def draw(self, surf, x, y, world):
 		"""
 		Draws the cell to the surface "surf".
 		"""
 		pygame.draw.rect(surf, self.color, (x, y, 16, 16))
+
+	def on_enter(self, ent):
+		"""
+		CALLBACK: Handles entry of an entity.
+		"""
+		pass
+
+	def on_exit(self, ent):
+		"""
+		CALLBACK: Handles exit of an entity.
+		"""
+		pass
 
 	def is_solid(self, world=None):
 		"""
@@ -64,7 +76,7 @@ class BaseEnt:
 		self.cx, self.cy = cx, cy
 		self.ox, self.oy =  0,  0
 
-	def draw(self, surf, x, y):
+	def draw(self, surf, x, y, world):
 		"""
 		Draws the entity at pixel position x, y.
 		"""
@@ -82,7 +94,7 @@ class BaseEnt:
 		pass
 
 class PlayerEnt(BaseEnt):
-	color = rgb(0, 255, 0)
+	color = rgb(0, 255, 255)
 
 	# TODO: Move this function to a better spot eventually
 	def cell_is_walkable(self, cx, cy, world=None):
@@ -106,10 +118,15 @@ class PlayerEnt(BaseEnt):
 
 	def tick(self):
 		# Move to relevant cell if need be
-		if self.ox != 0:
-			self.ox += (1 if self.ox < 0 else -1)
-		if self.oy != 0:
-			self.oy += (1 if self.oy < 0 else -1)
+		if not(self.ox == 0 and self.oy == 0):
+			if self.ox != 0:
+				self.ox += (1 if self.ox < 0 else -1)
+			if self.oy != 0:
+				self.oy += (1 if self.oy < 0 else -1)
+
+			# If we've just entered the cell, call on_enter
+			if self.ox == 0 and self.oy == 0:
+				self.lvl.get_cell(self.cx, self.cy).on_enter(self)
 
 		if self.ox == 0 and self.oy == 0:
 			# Work out movement
@@ -123,16 +140,23 @@ class PlayerEnt(BaseEnt):
 			if newkeys[pygame.K_DOWN]:
 				vy += 1
 
+			# Bail if we're not moving anywhere
+			if vx == 0 and vy == 0:
+				return
+
 			# Work out if anything is in that cell
 			if self.cell_is_walkable(self.cx + vx, self.cy + vy):
+				self.lvl.get_cell(self.cx, self.cy).on_exit(self)
 				self.cx += vx
 				self.cy += vy
 				self.ox -= 16*vx
 				self.oy -= 16*vy
 			elif self.cell_is_walkable(self.cx + vx, self.cy):
+				self.lvl.get_cell(self.cx, self.cy).on_exit(self)
 				self.cx += vx
 				self.ox -= 16*vx
 			elif self.cell_is_walkable(self.cx, self.cy + vy):
+				self.lvl.get_cell(self.cx, self.cy).on_exit(self)
 				self.cy += vy
 				self.oy -= 16*vy
 
@@ -144,6 +168,33 @@ class WallCell(BaseCell):
 	color = rgb(55, 55, 55)
 	solid = True
 
+class WorldAcceptCell(BaseCell):
+	def __init__(self, worlds):
+		self.worlds = worlds
+
+	def is_solid(self, world=None):
+		return not (world in self.worlds)
+
+	def draw(self, surf, x, y, world):
+		pygame.draw.rect(surf,
+			(rgb(0, 255, 0) if world in self.worlds else rgb(255, 0, 0)),
+			(x, y, 32, 32))
+
+class WorldChangeCell(BaseCell):
+	solid = False
+
+	def __init__(self, change_map):
+		self.change_map = change_map
+
+	def on_enter(self, ent):
+		if ent.world in self.change_map:
+			ent.world = self.change_map[ent.world]
+
+	def draw(self, surf, x, y, world):
+		pygame.draw.rect(surf,
+			(rgb(40, 0, 64) if world in self.change_map else rgb(170, 100, 85)),
+			(x, y, 32, 32))
+
 class Level:
 	"""
 	A Level contains all the logic and stuff for a, well, level.
@@ -151,6 +202,7 @@ class Level:
 	def __init__(self, data):
 		# Allocate entity list
 		self.ents = []
+		self.player = None
 
 		# Allocate grid
 		self.g = [[None for x in xrange(len(data[0]))]
@@ -178,9 +230,9 @@ class Level:
 			ent.tick()
 		pass
 
-	def draw(self, surf, camx, camy):
+	def draw(self, surf, camx, camy, world):
 		"""
-		Draws the level at (-camx, -camy) on surface "surf".
+		Draws the level at (-camx, -camy) on surface "surf", using world "world".
 		"""
 
 		# Draw cells
@@ -188,11 +240,11 @@ class Level:
 			for x in xrange(len(self.g[0])):
 				cell = self.g[y][x]
 				if cell != None:
-					cell.draw(surf, x*16-camx, y*16-camy)
+					cell.draw(surf, x*16-camx, y*16-camy, world)
 
 		# Draw entities
 		for ent in self.ents:
-			ent.draw(surf, -camx, -camy)
+			ent.draw(surf, -camx, -camy, world)
 
 	def translate_level_char(self, c, x, y):
 		"""
@@ -208,8 +260,28 @@ class Level:
 		elif c == "#":
 			return WallCell()
 
+		elif c == "0":
+			return WorldAcceptCell(set((0,)))
+
+		elif c == "1":
+			return WorldChangeCell({0:2, 2:0})
+
+		elif c == "2":
+			return WorldAcceptCell(set((2,)))
+
+		elif c == "3":
+			return WorldChangeCell({2:4, 4:2})
+
+		elif c == "4":
+			return WorldAcceptCell(set((4,)))
+
+		elif c == "5":
+			return WorldChangeCell({4:0})
+
 		elif c == "P":
-			self.ents.append(PlayerEnt(self, x, y))
+			assert self.player == None
+			self.player = PlayerEnt(self, x, y)
+			self.ents.append(self.player)
 			return FloorCell()
 
 		else:
@@ -222,13 +294,13 @@ lvl = Level(
 ................
 .....#####......
 ..####,,,####...
-..#P,#,,,#,,#...
-..#,,,,,,,,,#...
-..#,,,###,,,#...
-..#,,#,,,#,,#...
-..####,,,####...
-......###.......
-................
+..#P,#,1,#,,#...
+..#,,0,,,2,,#...
+..#,,#####,,#...
+..#,54,,,2,,#...
+..####,3,####...
+.....#,,,#......
+.....#####......
 ................
 """.split("\n")[1:-1]
 )
@@ -245,7 +317,7 @@ while not quitflag:
 	if tick_current < tick_next:
 		# Draw screen
 		screen.fill(rgb(0,0,170))
-		lvl.draw(screen, 0, 0)
+		lvl.draw(screen, 0, 0, lvl.player.world)
 		flip_screen()
 
 		# Prevent CPU fires
