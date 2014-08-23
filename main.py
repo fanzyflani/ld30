@@ -1,5 +1,5 @@
 #!/usr/bin/env python2 --
-import math, random, time
+import math, os, random, time
 
 import pygame
 
@@ -15,7 +15,25 @@ SPF = 1.0/FPS
 # Set up display
 pygame.display.set_caption("LD30")
 screen_real = pygame.display.set_mode((WIDTH*SCALE, HEIGHT*SCALE), 0, 0)
-screen = pygame.Surface((WIDTH, HEIGHT), 0, screen_real.get_bitsize())
+screen = pygame.Surface((WIDTH, HEIGHT), 0, screen_real.get_bitsize()).convert(screen_real)
+
+def subtile(img, w, h, cx, cy):
+	"""
+	Gets a tile-indexed w by h subsurface from the tilemap "img".
+	"""
+
+	return img.subsurface((cx*w, cy*h, w, h))
+
+# Load some images
+img_tiles = pygame.image.load(os.path.join("dat", "tiles.tga"))
+#img_tiles.set_colorkey(0, pygame.RLEACCEL)
+img_tiles = img_tiles.convert(screen)
+
+img_tiles_floor = subtile(img_tiles, 16, 16, 0, 1)
+img_tiles_portal = subtile(img_tiles, 16, 16, 0, 2)
+img_tiles_wall = subtile(img_tiles, 16, 16, 0, 3)
+img_tiles_doorno = subtile(img_tiles, 16, 16, 0, 4)
+img_tiles_dooryes = subtile(img_tiles, 16, 16, 0, 5)
 
 def rgb(r, g, b):
 	"""
@@ -37,13 +55,26 @@ def flip_screen():
 
 class BaseCell:
 	color = rgb(255, 0, 255)
+	imgs = None
 	solid = True
 
 	def draw(self, surf, x, y, world):
 		"""
 		Draws the cell to the surface "surf".
 		"""
-		pygame.draw.rect(surf, self.color, (x, y, 16, 16))
+		if self.imgs == None:
+			# No image - draw a rect
+			pass
+			#pygame.draw.rect(surf, self.color, (x, y, 16, 16))
+
+		elif type(self.imgs) in (list, tuple,):
+			# Indexable sequence - pick an image
+			# TODO: do more than just the first image
+			surf.blit(self.imgs[0], (x, y))
+
+		else:
+			# Assuming this is a single image
+			surf.blit(self.imgs, (x, y))
 
 	def on_enter(self, ent):
 		"""
@@ -162,10 +193,12 @@ class PlayerEnt(BaseEnt):
 
 class FloorCell(BaseCell):
 	color = rgb(170, 100, 85)
+	imgs = img_tiles_floor
 	solid = False
 
 class WallCell(BaseCell):
 	color = rgb(55, 55, 55)
+	imgs = img_tiles_wall
 	solid = True
 
 class WorldAcceptCell(BaseCell):
@@ -176,9 +209,14 @@ class WorldAcceptCell(BaseCell):
 		return not (world in self.worlds)
 
 	def draw(self, surf, x, y, world):
+		surf.blit(
+			(img_tiles_dooryes if world in self.worlds else img_tiles_doorno),
+			(x, y))
+		"""
 		pygame.draw.rect(surf,
 			(rgb(0, 255, 0) if world in self.worlds else rgb(255, 0, 0)),
-			(x, y, 32, 32))
+			(x, y, 16, 16))
+		"""
 
 class WorldChangeCell(BaseCell):
 	solid = False
@@ -191,9 +229,14 @@ class WorldChangeCell(BaseCell):
 			ent.world = self.change_map[ent.world]
 
 	def draw(self, surf, x, y, world):
+		surf.blit(
+			(img_tiles_portal if world in self.change_map else img_tiles_floor),
+			(x, y))
+		"""
 		pygame.draw.rect(surf,
 			(rgb(40, 0, 64) if world in self.change_map else rgb(170, 100, 85)),
-			(x, y, 32, 32))
+			(x, y, 16, 16))
+		"""
 
 class Level:
 	"""
