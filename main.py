@@ -11,6 +11,10 @@ SCALE = 3
 
 FPS = 60.0
 SPF = 1.0/FPS
+CAMBORDER = 64
+
+real_camx = WIDTH//2
+real_camy = HEIGHT//2
 
 # Set up display
 pygame.display.set_caption("LD30")
@@ -160,6 +164,21 @@ class PlayerEnt(BaseEnt):
 			if self.ox == 0 and self.oy == 0:
 				self.lvl.get_cell(self.cx, self.cy).on_enter(self)
 
+		# Set camera
+		rx = self.cx*16 + self.ox + 8
+		ry = self.cy*16 + self.oy + 8
+
+		global real_camx
+		global real_camy
+		if rx - real_camx < -(WIDTH//2 - CAMBORDER):
+			real_camx = (WIDTH//2 - CAMBORDER) + rx
+		if rx - real_camx > (WIDTH//2 - CAMBORDER):
+			real_camx = -(WIDTH//2 - CAMBORDER) + rx
+		if ry - real_camy < -(HEIGHT//2 - CAMBORDER):
+			real_camy = (HEIGHT//2 - CAMBORDER) + ry
+		if ry - real_camy > (HEIGHT//2 - CAMBORDER):
+			real_camy = -(HEIGHT//2 - CAMBORDER) + ry
+
 		if self.ox == 0 and self.oy == 0:
 			# Work out movement
 			vx, vy = 0, 0
@@ -191,11 +210,14 @@ class PlayerEnt(BaseEnt):
 				self.lvl.get_cell(self.cx, self.cy).on_exit(self)
 				self.cy += vy
 				self.oy -= 16*vy
-				
+
+			#
 			'''
 			TODO:
 			Add in a check to see if the player is in a NextLevelCell AND levelPos == totalLevels
 			Then add in an endgame sequence etc. :)
+
+			> will be making a FinishCell for this purpose --Ben
 			'''
 	
 
@@ -296,7 +318,6 @@ class Level:
 		# Update entities
 		for ent in self.ents:
 			ent.tick()
-		pass
 
 	def draw(self, surf, camx, camy, world):
 		"""
@@ -346,7 +367,7 @@ class Level:
 		elif c == "5":
 			return WorldChangeCell({4:0})
 		
-		elif c == "6":
+		elif c == "@":
 			return NextLevelCell()
 
 		elif c == "P":
@@ -367,15 +388,42 @@ class Level:
 3 changes the state of 4.
 4 is locked until 3 is entered.
 5 changes the state of 0.
-6 is the end of the level.
+@ is the end of the level.
 P is the Player's starting position.
 '''		
 
-# Create test level
+# Create levels
 LVL_STRINGS = [
 """
+.........................
+...####################..
+.###,,,,,,,,,,,,,,,,,,#..
+.#@#00###############,#..
+.#2#,5#######....####0###
+.#,444###,,,######,,,,,,#
+.#,,,5444,P,2,,,,,3,,,,,#
+.#,#2##3#,,,######4##0,,#
+.#,#2##2#,,,#....#,#@0,,#
+.#,0,01,#000#....#,#,0,,#
+.###2####,,,#....#,###22#
+...#,####,,,######,#.#,,#
+...#,,,,2,1,4,,,,,,#.####
+...######,,,########.....
+........##,##............
+.........#4#.............
+........##,##............
+........#,,,#............
+........#,@,#............
+........#,,,#............
+........#####............
+""".split("\n")[1:-1]
+]
+
+# Test levels, NOT USED
+'''
+"""
 ##################
-#5,32,,,2,6##,,,,#
+#5,32,,,2,@##,,,,#
 #,###,5,#####,1,,#
 #4###,,,0,,,0,,,,#
 #,,,##44########2#
@@ -392,10 +440,10 @@ LVL_STRINGS = [
 #####
 #2,P#
 #30,#
-#650#
+#@50#
 #####
 """.split("\n")[1:-1],
-]
+'''
 
 
 #One list to rule them all
@@ -422,7 +470,10 @@ while not quitflag:
 	if tick_current < tick_next:
 		# Draw screen
 		screen.fill(rgb(0,0,170))
-		levelList[levelPos].draw(screen, 0, 0, levelList[levelPos].player.world)
+		levelList[levelPos].draw(screen,
+			real_camx - WIDTH//2,
+			real_camy - HEIGHT//2,
+			levelList[levelPos].player.world)
 		flip_screen()
 
 		# Prevent CPU fires
