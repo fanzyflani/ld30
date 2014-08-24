@@ -190,6 +190,7 @@ class PlayerEnt(BaseEnt):
 				self.lvl.get_cell(self.cx, self.cy).on_exit(self)
 				self.cy += vy
 				self.oy -= 16*vy
+	
 
 class FloorCell(BaseCell):
 	color = rgb(170, 100, 85)
@@ -200,7 +201,17 @@ class WallCell(BaseCell):
 	color = rgb(55, 55, 55)
 	imgs = img_tiles_wall
 	solid = True
-
+	
+class NextLevelCell(BaseCell):
+    color = rgb(170, 100, 85)
+	imgs = img_tiles_portal #TODO : Make a green portal for this cell
+	solid = False
+	
+	'''TODO:
+	def on_entry(): 
+	    inrement listPos by 1 (i.e. listPos += 1)
+    '''
+	
 class WorldAcceptCell(BaseCell):
 	def __init__(self, worlds):
 		self.worlds = worlds
@@ -320,6 +331,9 @@ class Level:
 
 		elif c == "5":
 			return WorldChangeCell({4:0})
+		
+		elif c == "6":
+		    return NextLevelCell()
 
 		elif c == "P":
 			assert self.player == None
@@ -330,6 +344,18 @@ class Level:
 		else:
 			raise Exception("invalid level char: %s" % repr(c))
 
+'''
+-----Tom's Nooby guide to help him create maps---
+0 is open at the start.
+1 changes the state of 2.
+2 is locked until 1 is entered.
+3 changes the state of 4.
+4 is locked until 3 is entered.
+5 changes the state of 0.
+6 is the end of the level.
+P is the Player's starting position.
+'''		
+			
 # Create test level
 lvl = Level(
 """
@@ -348,6 +374,18 @@ lvl = Level(
 """.split("\n")[1:-1]
 )
 
+#One list to rule them all
+
+levelList = [lvl]
+
+#Calculates total levels (will be used to display an end-game message)
+
+totalLevels = len(levelList)
+
+#Used to determine what level the player is on
+
+levelPos = 0
+
 # Main loop
 quitflag = False
 oldkeys = pygame.key.get_pressed()
@@ -360,7 +398,7 @@ while not quitflag:
 	if tick_current < tick_next:
 		# Draw screen
 		screen.fill(rgb(0,0,170))
-		lvl.draw(screen, 0, 0, lvl.player.world)
+		levelList[levelPos].draw(screen, 0, 0, levelList[levelPos].player.world)
 		flip_screen()
 
 		# Prevent CPU fires
@@ -374,7 +412,7 @@ while not quitflag:
 			quitflag = True
 
 		# Update logic
-		lvl.tick()
+		levelList[levelPos].tick()
 
 		# Transfer newkeys to oldkeys
 		oldkeys = newkeys
