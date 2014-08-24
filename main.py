@@ -190,6 +190,12 @@ class PlayerEnt(BaseEnt):
 				self.lvl.get_cell(self.cx, self.cy).on_exit(self)
 				self.cy += vy
 				self.oy -= 16*vy
+				
+			'''
+			TODO:
+			Add in a check to see if the player is in a NextLevelCell AND levelPos == totalLevels
+			Then add in an endgame sequence etc. :)
+			'''
 	
 
 class FloorCell(BaseCell):
