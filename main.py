@@ -203,14 +203,14 @@ class WallCell(BaseCell):
 	solid = True
 	
 class NextLevelCell(BaseCell):
-    color = rgb(170, 100, 85)
+	color = rgb(170, 100, 85)
 	imgs = img_tiles_portal #TODO : Make a green portal for this cell
 	solid = False
 	
 	'''TODO:
 	def on_entry(): 
 	    inrement listPos by 1 (i.e. listPos += 1)
-    '''
+	'''
 	
 class WorldAcceptCell(BaseCell):
 	def __init__(self, worlds):
