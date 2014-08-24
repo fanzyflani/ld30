@@ -25,7 +25,7 @@ def subtile(img, w, h, cx, cy):
 	return img.subsurface((cx*w, cy*h, w, h))
 
 # Load some images
-img_tiles = pygame.image.load(os.path.join("dat", "tiles.png"))
+img_tiles = pygame.image.load(os.path.join("dat", "tiles.tga"))
 #img_tiles.set_colorkey(0, pygame.RLEACCEL)
 img_tiles = img_tiles.convert(screen)
 
@@ -34,6 +34,7 @@ img_tiles_portal = subtile(img_tiles, 16, 16, 0, 2)
 img_tiles_wall = subtile(img_tiles, 16, 16, 0, 3)
 img_tiles_doorno = subtile(img_tiles, 16, 16, 0, 4)
 img_tiles_dooryes = subtile(img_tiles, 16, 16, 0, 5)
+img_tiles_portal_nextlv = subtile(img_tiles, 16, 16, 0, 6)
 
 def rgb(r, g, b):
 	"""
@@ -210,14 +211,16 @@ class WallCell(BaseCell):
 	
 class NextLevelCell(BaseCell):
 	color = rgb(170, 100, 85)
-	imgs = img_tiles_portal #TODO : Make a green portal for this cell
+	imgs = img_tiles_portal_nextlv
 	solid = False
-	
-	'''TODO:
-	def on_entry(): 
-	    inrement listPos by 1 (i.e. listPos += 1)
-	'''
-	
+
+	def on_enter(self, ent): 
+		global levelPos
+		oldLevelPos = levelPos
+		levelPos = (levelPos + 1) % totalLevels
+		levelList[levelPos].player.world = levelList[oldLevelPos].player.world
+		levelList[levelPos].respawn_player()
+
 class WorldAcceptCell(BaseCell):
 	def __init__(self, worlds):
 		self.worlds = worlds
@@ -263,6 +266,7 @@ class Level:
 		# Allocate entity list
 		self.ents = []
 		self.player = None
+		self.player_spawn = None
 
 		# Allocate grid
 		self.g = [[None for x in xrange(len(data[0]))]
@@ -272,6 +276,10 @@ class Level:
 		for l, y in zip(data, xrange(len(data))):
 			for c, x in zip(l, xrange(len(l))):
 				self.g[y][x] = self.translate_level_char(c, x, y)
+
+	def respawn_player(self):
+		self.player.cx, self.player.cy = self.player_spawn
+		self.player.ox, self.player.oy = (0, 0)
 
 	def get_cell(self, x, y):
 		"""
@@ -339,10 +347,11 @@ class Level:
 			return WorldChangeCell({4:0})
 		
 		elif c == "6":
-		    return NextLevelCell()
+			return NextLevelCell()
 
 		elif c == "P":
 			assert self.player == None
+			self.player_spawn = (x, y)
 			self.player = PlayerEnt(self, x, y)
 			self.ents.append(self.player)
 			return FloorCell()
@@ -361,12 +370,12 @@ class Level:
 6 is the end of the level.
 P is the Player's starting position.
 '''		
-			
+
 # Create test level
-lvl = Level(
+LVL_STRINGS = [
 """
 ##################
-#5,32,,,2,,##,,,,#
+#5,32,,,2,6##,,,,#
 #,###,5,#####,1,,#
 #4###,,,0,,,0,,,,#
 #,,,##44########2#
@@ -377,12 +386,21 @@ lvl = Level(
 .#,######,3,####,#
 .#,543210,,,0,,,1#
 .#################
-""".split("\n")[1:-1]
-)
+""".split("\n")[1:-1],
+
+"""
+#####
+#2,P#
+#30,#
+#650#
+#####
+""".split("\n")[1:-1],
+]
+
 
 #One list to rule them all
 
-levelList = [lvl]
+levelList = map(Level, LVL_STRINGS)
 
 #Calculates total levels (will be used to display an end-game message)
 
