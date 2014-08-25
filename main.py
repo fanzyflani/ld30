@@ -39,6 +39,7 @@ img_tiles_wall = subtile(img_tiles, 16, 16, 0, 3)
 img_tiles_doorno = subtile(img_tiles, 16, 16, 0, 4)
 img_tiles_dooryes = subtile(img_tiles, 16, 16, 0, 5)
 img_tiles_portal_nextlv = subtile(img_tiles, 16, 16, 0, 6)
+img_tiles_portal_firstlv = subtile(img_tiles, 16, 16, 0, 7)
 
 def rgb(r, g, b):
 	"""
@@ -214,7 +215,7 @@ class PlayerEnt(BaseEnt):
 			#
 			'''
 			TODO:
-			Add in a check to see if the player is in a NextLevelCell AND levelPos == totalLevels
+			Add in a check to see if the player is in a SetLevelCell AND levelPos == totalLevels
 			Then add in an endgame sequence etc. :)
 
 			> will be making a FinishCell for this purpose --Ben
@@ -231,15 +232,31 @@ class WallCell(BaseCell):
 	imgs = img_tiles_wall
 	solid = True
 	
-class NextLevelCell(BaseCell):
+class SetLevelCell(BaseCell):
 	color = rgb(170, 100, 85)
 	imgs = img_tiles_portal_nextlv
 	solid = False
 
+	def __init__(self, transfer):
+		self.transfer = transfer
+		assert transfer in ["next", "first",]
+
+		if transfer == "next":
+			self.imgs = img_tiles_portal_nextlv
+		elif transfer == "first":
+			self.imgs = img_tiles_portal_firstlv
+
 	def on_enter(self, ent): 
 		global levelPos
+
 		oldLevelPos = levelPos
-		levelPos = (levelPos + 1) % totalLevels
+		if self.transfer == "next":
+			levelPos = (levelPos + 1) % totalLevels
+		elif self.transfer == "first":
+			levelPos = 0
+		else:
+			raise Exception("EDOOFUS: Invalid transfer type for SetLevelCell")
+
 		levelList[levelPos].player.world = levelList[oldLevelPos].player.world
 		levelList[levelPos].respawn_player()
 
@@ -302,6 +319,9 @@ class Level:
 	def respawn_player(self):
 		self.player.cx, self.player.cy = self.player_spawn
 		self.player.ox, self.player.oy = (0, 0)
+		global real_camx
+		global real_camy
+		real_camx, real_camy = map(lambda v: v*16+8, self.player_spawn)
 
 	def get_cell(self, x, y):
 		"""
@@ -353,13 +373,13 @@ class Level:
 			return WorldAcceptCell(set((0,)))
 
 		elif c == "1":
-			return WorldChangeCell({0:2, 2:0})
+			return WorldChangeCell({0:2})
 
 		elif c == "2":
 			return WorldAcceptCell(set((2,)))
 
 		elif c == "3":
-			return WorldChangeCell({2:4, 4:2})
+			return WorldChangeCell({2:4})
 
 		elif c == "4":
 			return WorldAcceptCell(set((4,)))
@@ -368,7 +388,10 @@ class Level:
 			return WorldChangeCell({4:0})
 		
 		elif c == "@":
-			return NextLevelCell()
+			return SetLevelCell("next")
+		
+		elif c == "$":
+			return SetLevelCell("first")
 
 		elif c == "P":
 			assert self.player == None
@@ -389,6 +412,7 @@ class Level:
 4 is locked until 3 is entered.
 5 changes the state of 0.
 @ is the end of the level.
+$ is a portal back to the first level.
 P is the Player's starting position.
 '''		
 
@@ -416,7 +440,62 @@ LVL_STRINGS = [
 ........#,@,#............
 ........#,,,#............
 ........#####............
-""".split("\n")[1:-1]
+""".split("\n")[1:-1],
+
+"""
+...........................
+........#####..............
+........#,,,#..............
+........#,@,#..............
+........#,,,#..............
+.......##444##...#####.....
+.......#,,,,,#####,,,#.....
+.......#,,P,,0,,,,,@,#.....
+.......#,,,,,#####,,,#.....
+.......##,,,##...#####.....
+........#,,,#..............
+........#,,,#..............
+........#,,,#..............
+........#2#4#..............
+........#3#,#..............
+........#,,,#..............
+........##,##..............
+.........#5#...............
+.......###0###.............
+.......#,,,,,#.............
+.......#,,,$,#.............
+.......#######.............
+...........................
+""".split("\n")[1:-1],
+
+"""
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+...........................
+..............######.......
+..............#,P,,#.......
+..............#,,,,#.......
+..............##,,##.......
+...............####........
+...........................
+""".split("\n")[1:-1],
+
+"""
+#####
+#P,$#
+#024#
+#####
+""".split("\n")[1:-1],
 ]
 
 # Test levels, NOT USED
@@ -445,17 +524,13 @@ LVL_STRINGS = [
 """.split("\n")[1:-1],
 '''
 
-
 #One list to rule them all
-
 levelList = map(Level, LVL_STRINGS)
 
 #Calculates total levels (will be used to display an end-game message)
-
 totalLevels = len(levelList)
 
 #Used to determine what level the player is on
-
 levelPos = 0
 
 # Main loop
