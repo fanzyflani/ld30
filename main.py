@@ -18,7 +18,7 @@ real_camx = WIDTH//2
 real_camy = HEIGHT//2
 
 # Set up display
-pygame.display.set_caption("LD30")
+pygame.display.set_caption("Portal DAGger")
 screen_real = pygame.display.set_mode((WIDTH*SCALE, HEIGHT*SCALE), 0, 0)
 screen = pygame.Surface((WIDTH, HEIGHT), 0, screen_real.get_bitsize()).convert(screen_real)
 
