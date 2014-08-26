@@ -4,6 +4,7 @@ import math, os, random, time
 import pygame
 
 pygame.init()
+music = pygame.mixer.music.load("dat/music.ogg")
 
 WIDTH = 320
 HEIGHT = 200
@@ -598,6 +599,7 @@ oldkeys = pygame.key.get_pressed()
 
 newkeys = pygame.key.get_pressed()
 tick_next = time.time()
+pygame.mixer.music.play(-1)
 while not quitflag:
 	# Handle timing
 	tick_current = time.time()
